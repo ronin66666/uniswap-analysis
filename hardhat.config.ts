@@ -28,26 +28,71 @@ const accounts = fs.readFileSync(".secret").toString().trim().split(",");
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.4",
-    settings: {
-      "optimizer": {
-        "enabled": true,
-        "runs": 200
+    compilers: [
+      {
+        version: "0.8.4",
+        settings: {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          }
+        }
+      },
+      {
+        version: "0.4.18",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          }
+        }
+      },
+      {
+        version: "0.5.16",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          }
+        }
+      },
+      {
+        version: "0.6.6",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 999999
+          }
+        }
+      },
+      {
+        version: "0.6.12",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 5000
+          }
+        }
       }
-    }
+    ]
   },
-  defaultNetwork: "hardhat",
+  defaultNetwork: "rinkeby",
   networks: {
-    hardhat:{//启动hardhat节点默认生成20个账户
+    hardhat: {//启动hardhat节点默认生成20个账户
       allowUnlimitedContractSize: true,
     },
-    localhost:{
+    localhost: {
       url: "http://127.0.0.1:8545/",
       //使用本地测试账户：通过npx hardhat node --network hardhat --no-deploy 命令可查看
       accounts: ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"],
     },
+    rinkeby: {
+      url: "https://rinkeby.infura.io/v3/" + process.env.infura_key,
+      chainId: 4,
+      accounts: accounts
+    },
     bsctest: {
-      allowUnlimitedContractSize:true,
+      allowUnlimitedContractSize: true,
       url: "https://data-seed-prebsc-1-s1.binance.org:8545/",
       chainId: 97,
       accounts: accounts
@@ -55,17 +100,16 @@ const config: HardhatUserConfig = {
       //tags: ["bsctest"] //设置网络别名，可通过hre.network.tags获得
     },
     ropsten: {
-      url: process.env.ROPSTEN_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      url: "https://ropsten.infura.io/v3/" + process.env.infura_key,
+      accounts: accounts
     },
   },
-  namedAccounts:{
-    deployer:{
-      default:0,
+  namedAccounts: {
+    deployer: {
+      default: 0,
     },
     user1: {
-      default:1
+      default: 1
     }
   },
   gasReporter: {

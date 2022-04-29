@@ -1,74 +1,78 @@
-## solidity测试代码
+# `Uniswap-V2`
 
-部分代码在分支中查看
+参考链接
+https://monokh.com/posts/uniswap-from-scratch
 
-## Hardhat部署和测试
+去中心化交易所
 
-[hardhat文档地址](https://hardhat.org/getting-started/)
+- AMM协议：AutoMated Market Making 
+  - AutoMate(d)： ⾃动，没有中间机构进⾏资⾦交易
+  - Market Making: 做市商（保证订单得以执⾏），流动性提供者（LP: liquidity providers） 
+    - 流动性指的是如何快速和⽆缝地购买或出售⼀项资产
+    - LP 是提供资产的⼈以实现快速交易。
+- 常ᰁ乘积模型： K = x * y
+  - AMM 的执⾏引擎， 没有价格预⾔机，价格⽤公式推导
+  -  x：token0 的储备量（reserve0） 
+  - y：token1 的储备量（reserve1） 
+- 提供流动性：
+  - 转⼊token0、token1，增加reserve0、reserve1，拿到流动性凭证 = sqrt(x * y)
+- 兑换时，K 保持不变
+  - 减少reserve0，就必须增加reserve1 
+  - 减少reserve1，就必须增加reserve0 
+- 移除流动性
+  - 通过流动性凭证，撤出token0、token1
 
-### 创建项目
+价格滑点（slippage）：⼀次交易使价格改变的程度， 单笔交易量越⼤对价格的影响越⼤
 
-```shell
-npx hadhat
+### 交易公式
+
+
+## 无常损失
+
+流动性提供者⽆常损失：⼀对代币存⼊Uniswap后，如果⼀种代币以另⼀种进⾏计价的价格上升，在价格上升后取出，总价格⽐原价值低⼀些，
+
+低的部分就是损失。
+
+https://zhuanlan.zhihu.com/p/268435169
+
+
+
+## 知识点：
+// 获取 UniswapV2Pair 合约的字节码
+```bash
+bytes memory bytecode = type(UniswapV2Pair).creationCode;
 ```
 
-### hardhat-deploy插件
+// 使用参数 token0, token1 计算 salt (abi编码)
+```bash
+bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+```
 
-[hardhat-deploy文档](https://github.com/wighawag/hardhat-deploy)
+## 创建api key
 
-### Installation
-```shell
+infura的使用
 
-npm install --save-dev hardhat-deploy
-npm install --save-dev  @nomiclabs/hardhat-ethers@npm:hardhat-deploy-ethers ethers
+注册： 
+https://infura.io/register
+
+然后登录创建账户，获取project id 
+
+![infuraKey](./img/infuraKey.png)
+
+其他`alchemy`创建key
+
+https://docs.alchemy.com/alchemy/introduction/getting-started
+
+
+
+## 部署
+
+```bash
+TypeError: Explicit type conversion not allowed from "int_const -1" to "uint128".
+  --> @uniswap/lib/contracts/libraries/BitMath.sol:48:17:
+   |
+48 |         if (x & uint128(-1) > 0) {
+   |                 ^^^^^^^^^^^
 
 ```
 
-## Usage
-
-1. 执行`npm install` 
-
-2. 创建`.secret`文件并输入用于测试的私钥，多个私钥逗号隔开
-
-3. `hardhat.config`中配置相关网络和账户
-
-4. 使用`hardhat`部署
-
-   1. 使用`hardhat`节点部署
-      启动节点 `npx hardhat node` or `npx hardhat node --tags greeter`
-      部署`npx hardhat deploy --tags hello`
-
-   2. 使用默认网络部署（在`hardhat.config.ts`中指定`defaultNetwork`）
-
-      `npx hardhat deploy --tags greeter`
-
-      或者指定网络
-
-      `npx hardhat deploy --tags greeter --network ropsten` 
-
-5. 运行脚本
-
-   `npx hardhat run script/test.ts `
-
-   `npx hardhat run script/test.ts --network ropsten` 
-
-## Other
-
-### openzeppelin
-
-[文档地址](https://docs.openzeppelin.com/)
-
-```sell
-npm install --save--dev @openzeppelin/contracts
-npm install --save--dev @openzeppelin/contracts-upgradeable
-```
-
-### list
-
-transfer, send, call, delegateCall
-
-abi
-
-prox
-
-离线签名(erc2612, erc712)
