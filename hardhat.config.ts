@@ -30,15 +30,6 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.4",
-        settings: {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          }
-        }
-      },
-      {
         version: "0.4.18",
         settings: {
           optimizer: {
@@ -87,7 +78,7 @@ const config: HardhatUserConfig = {
       accounts: ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"],
     },
     rinkeby: {
-      url: "https://rinkeby.infura.io/v3/" + process.env.infura_key,
+      url: "https://rinkeby.infura.io/v3/8ad3fff7ef19437cac6a5c46fd382e49",
       chainId: 4,
       accounts: accounts
     },

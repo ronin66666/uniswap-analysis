@@ -10,7 +10,7 @@ https://monokh.com/posts/uniswap-from-scratch
   - Market Making: 做市商（保证订单得以执⾏），流动性提供者（LP: liquidity providers） 
     - 流动性指的是如何快速和⽆缝地购买或出售⼀项资产
     - LP 是提供资产的⼈以实现快速交易。
-- 常ᰁ乘积模型： K = x * y
+- 常量乘积模型： K = x * y
   - AMM 的执⾏引擎， 没有价格预⾔机，价格⽤公式推导
   -  x：token0 的储备量（reserve0） 
   - y：token1 的储备量（reserve1） 
@@ -64,9 +64,9 @@ https://infura.io/register
 https://docs.alchemy.com/alchemy/introduction/getting-started
 
 
-
 ## 部署
 
+编译时出现该错误
 ```bash
 TypeError: Explicit type conversion not allowed from "int_const -1" to "uint128".
   --> @uniswap/lib/contracts/libraries/BitMath.sol:48:17:
@@ -75,4 +75,22 @@ TypeError: Explicit type conversion not allowed from "int_const -1" to "uint128"
    |                 ^^^^^^^^^^^
 
 ```
+解决方法，注销调用编译版本过高的配置
+```bash
+{
+        version: "0.8.4",
+        settings: {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          }
+        }
+      },
+```
 
+在UniswapV2Factory.sol中新增如下代码，用于获取 `type(UniswapV2Pair).creationCode`的 `keccak256`值
+```solidity
+bytes32 public constant INIT_CODE_PAIR_HASH = keccak256(abi.encodePacked(type(UniswapV2Pair).creationCode));`
+```
+将值粘贴到 keccak_256 后获取hash值(注意要用hex模式)，
+替换 UniswapV2Router02.sol 中的 initCode 码（之所这么做是因为Router需要通过这个hash找到Pair的地址，而hash会随着编译环境的改变而变化，真他妈是个鬼才！）

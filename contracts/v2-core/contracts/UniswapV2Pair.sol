@@ -16,18 +16,23 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     bytes4 private constant SELECTOR = bytes4(keccak256(bytes('transfer(address,uint256)')));
 
     address public factory;
-    address public token0;
-    address public token1;
+    address public token0; //一个交易对中的token0
+    address public token1; //一个交易对中的token0
 
-    uint112 private reserve0;           // uses single storage slot, accessible via getReserves
+    //token的储备数量    
+    uint112 private reserve0        // uses single storage slot, accessible via getReserves
     uint112 private reserve1;           // uses single storage slot, accessible via getReserves
+
     uint32  private blockTimestampLast; // uses single storage slot, accessible via getReserves
 
-    uint public price0CumulativeLast;
-    uint public price1CumulativeLast;
+    uint public price0CumulativeLast;   //token0的最新价格
+    uint public price1CumulativeLast;   //token1的最新价格
+
+    //常量乘积模型：K
     uint public kLast; // reserve0 * reserve1, as of immediately after the most recent liquidity event
 
     uint private unlocked = 1;
+
     modifier lock() {
         require(unlocked == 1, 'UniswapV2: LOCKED');
         unlocked = 0;
@@ -35,12 +40,18 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         unlocked = 1;
     }
 
+    /**
+     * _reserve0: token0的资金池储存数量
+     * _reserve1: token1的资金池储存数量
+     * _blockTimestampLast: 上传更新库存的时间
+     */
     function getReserves() public view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast) {
         _reserve0 = reserve0;
         _reserve1 = reserve1;
         _blockTimestampLast = blockTimestampLast;
     }
 
+    //转账
     function _safeTransfer(address token, address to, uint value) private {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(SELECTOR, to, value));
         require(success && (data.length == 0 || abi.decode(data, (bool))), 'UniswapV2: TRANSFER_FAILED');
@@ -48,6 +59,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
 
     event Mint(address indexed sender, uint amount0, uint amount1);
     event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
+    
     event Swap(
         address indexed sender,
         uint amount0In,
@@ -56,6 +68,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         uint amount1Out,
         address indexed to
     );
+
     event Sync(uint112 reserve0, uint112 reserve1);
 
     constructor() public {
@@ -70,22 +83,44 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     }
 
     // update reserves and, on the first call per block, price accumulators
+    /**
+        更新资金池: 主要作用是对资金池的记录库存和实际余额进行匹配，保证库存和余额统一。
+        函数 _update 中对 price0CumulativeLast 和 price1CumulativeLast 进行了与时间成反比的数值累加，
+        可以通过这两个变量计算出相对平衡的市场价格。
+        uint balance0, // token0 的余额
+        uint balance1, // token1 的余额
+        uint112 _reserve0, // token0 的资金池库存数量
+        uint112 _reserve1 // token1 的资金池库存数量
+     */
     function _update(uint balance0, uint balance1, uint112 _reserve0, uint112 _reserve1) private {
+        // uint112(-1) = type(uint112).max
+        // balance0 和 blanace1 不超过 uint112 的上限
         require(balance0 <= uint112(-1) && balance1 <= uint112(-1), 'UniswapV2: OVERFLOW');
+
+        //uint32(block.timestamp % 2**32) 保证时间不超过uint32的最大值
         uint32 blockTimestamp = uint32(block.timestamp % 2**32);
+
+        //计算时间差：当前时间 - 上传更新时间
         uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
         if (timeElapsed > 0 && _reserve0 != 0 && _reserve1 != 0) {
             // * never overflows, and + overflow is desired
+
+            //由于solidity没有浮点数所以 这里使用UQ112x112库来计算，防止当被除数小于除数时结果为0的情况
+            //token1相对于token0 的timeElapsed累计价格计算：(_reserve1 / __reserve0) * 时间差， 
             price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
+
+            //token0相对于token1 的timeElapsed累计价格计算：(_reserve1 / __reserve0) * 时间差， 
             price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
         }
+
         reserve0 = uint112(balance0);
         reserve1 = uint112(balance1);
         blockTimestampLast = blockTimestamp;
-        emit Sync(reserve0, reserve1);
+        emit Sync(reserve0, reserve1); //提交同步数据
     }
 
     // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
+    // 实现添加和移除流动性时，向 feeTo 地址发送手续费。
     function _mintFee(uint112 _reserve0, uint112 _reserve1) private returns (bool feeOn) {
         address feeTo = IUniswapV2Factory(factory).feeTo();
         feeOn = feeTo != address(0);

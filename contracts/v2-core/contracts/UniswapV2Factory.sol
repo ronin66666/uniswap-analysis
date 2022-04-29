@@ -4,6 +4,8 @@ import './interfaces/IUniswapV2Factory.sol';
 import './UniswapV2Pair.sol';
 
 contract UniswapV2Factory is IUniswapV2Factory {
+    //自己新加的
+    bytes32 public constant INIT_CODE_PAIR_HASH = keccak256(abi.encodePacked(type(UniswapV2Pair).creationCode));
     address public feeTo;
     address public feeToSetter;
 
@@ -36,11 +38,11 @@ contract UniswapV2Factory is IUniswapV2Factory {
         // 使用参数 token0, token1 计算 salt
         bytes32 salt = keccak256(abi.encodePacked(token0, token1));
 
-        // 使用 create2 部署 Pair 合约
+        // 使用 create2 部署 交易对 UniswapV2Pair 合约
         assembly {
             pair := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
-        //调用初始化方法
+        //由于create2函数无法传参，需调用initialize方法来记录token0,token1
         IUniswapV2Pair(pair).initialize(token0, token1);
 
         //记录token0 => token1 交易对为pair
@@ -52,11 +54,13 @@ contract UniswapV2Factory is IUniswapV2Factory {
         emit PairCreated(token0, token1, pair, allPairs.length);
     }
 
+    //设置手续费接收地址
     function setFeeTo(address _feeTo) external {
         require(msg.sender == feeToSetter, 'UniswapV2: FORBIDDEN');
         feeTo = _feeTo;
     }
 
+    //设置手续费管理员，该管理员可以设置手续费接收地址
     function setFeeToSetter(address _feeToSetter) external {
         require(msg.sender == feeToSetter, 'UniswapV2: FORBIDDEN');
         feeToSetter = _feeToSetter;
