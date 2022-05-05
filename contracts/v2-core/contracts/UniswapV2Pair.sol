@@ -86,6 +86,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     }
 
     // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
+    //mint 流动性相当于 sqrt(k) 增长的 1/6
     function _mintFee(uint112 _reserve0, uint112 _reserve1) private returns (bool feeOn) {
         address feeTo = IUniswapV2Factory(factory).feeTo();
         feeOn = feeTo != address(0);
@@ -131,6 +132,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     }
 
     // this low-level function should be called from a contract which performs important safety checks
+    //销毁LP，返回tokenA 和 tokenB 的数量
     function burn(address to) external lock returns (uint amount0, uint amount1) {
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
         address _token0 = token0;                                // gas savings
@@ -139,23 +141,27 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         uint balance1 = IERC20(_token1).balanceOf(address(this));
         uint liquidity = balanceOf[address(this)];
 
+        //手续费
         bool feeOn = _mintFee(_reserve0, _reserve1);
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         amount0 = liquidity.mul(balance0) / _totalSupply; // using balances ensures pro-rata distribution
         amount1 = liquidity.mul(balance1) / _totalSupply; // using balances ensures pro-rata distribution
         require(amount0 > 0 && amount1 > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED');
+        //销毁LP
         _burn(address(this), liquidity);
+        //转移token0,和token1
         _safeTransfer(_token0, to, amount0);
         _safeTransfer(_token1, to, amount1);
         balance0 = IERC20(_token0).balanceOf(address(this));
         balance1 = IERC20(_token1).balanceOf(address(this));
-
+        //更新
         _update(balance0, balance1, _reserve0, _reserve1);
         if (feeOn) kLast = uint(reserve0).mul(reserve1); // reserve0 and reserve1 are up-to-date
         emit Burn(msg.sender, amount0, amount1, to);
     }
 
     // this low-level function should be called from a contract which performs important safety checks
+    //兑换
     function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
         require(amount0Out > 0 || amount1Out > 0, 'UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
@@ -163,7 +169,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
 
         uint balance0;
         uint balance1;
-        { // scope for _token{0,1}, avoids stack too deep errors
+        { // scope for _token{0,1}, avoids stack too deep errors 使用代码块来避免堆栈太深（变量过多）的错误
         address _token0 = token0;
         address _token1 = token1;
         require(to != _token0 && to != _token1, 'UniswapV2: INVALID_TO');

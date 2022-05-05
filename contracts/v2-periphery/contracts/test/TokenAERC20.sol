@@ -2,11 +2,11 @@ pragma solidity =0.6.6;
 
 import '../libraries/SafeMath.sol';
 
-contract ERC20 {
+contract TokenAERC20 {
     using SafeMath for uint;
 
-    string public constant name = 'Test Token';
-    string public constant symbol = 'TT';
+    string public constant name = 'token A';
+    string public constant symbol = 'TA';
     uint8 public constant decimals = 18;
     uint  public totalSupply;
     mapping(address => uint) public balanceOf;

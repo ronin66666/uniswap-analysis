@@ -76,3 +76,18 @@ TypeError: Explicit type conversion not allowed from "int_const -1" to "uint128"
 
 ```
 
+修改`UniswapV2Library`里`pariFor()`方法里计算交易对合约地址的`init_code`（也就是最后一个参数32字节的hash值）过去方式见下面的 ** create2 方式部署合约 **
+
+
+## create2 方式部署合约 
+`create2` 使用场景: https://learnblockchain.cn/article/1297
+
+计算合约地址时`init_code` 获取方式：
+### 获取bytecode
+1. 使用VSCode编译插件编译获取对应合约的.bin文件，里面的内容就是bytecode
+2. 使用remix编译合约，点击左边编译按钮，点击右下角bytecode复制内容，取出里面`object`对应的值
+
+### 获取init_code
+将上面获取的byteCode粘贴到http://emn178.github.io/online-tools/keccak_256.html
+选择inputType为Hex得到hash值 就是计算合约地址的`init_code`
+

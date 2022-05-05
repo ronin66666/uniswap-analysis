@@ -16,12 +16,29 @@ library UniswapV2Library {
 
     // calculates the CREATE2 address for a pair without making any external calls
     function pairFor(address factory, address tokenA, address tokenB) internal pure returns (address pair) {
+        //对tokenA和tokenB进行排序, 地址值从小到大
         (address token0, address token1) = sortTokens(tokenA, tokenB);
-        pair = address(uint(keccak256(abi.encodePacked(
+
+        //预计算使用create2部署交易对（合约）地址
+        //地址计算参数：
+        //0xff 
+        //sender: 调用CREATE2的智能合约的地址, 这里是UniswapV2Factory的地址 
+        //slat: keccak256(abi.encodePacked(token0, token1)),
+        //init_code:  要部署合约的字节码
+        //init_code 代码是用来创建合约的，合约创建完成后将返回运行时字节码（runtime bytecode）。
+        //通常init_code代码包括合约的构造函数及其参数，以及合约代码本身。
+        //7ac133e28fc374574416298997684759cf03e3c03c0a3339ec4bb4ace508a7af
+        // pair = address(uint(keccak256(abi.encodePacked(
+        //         hex'ff',
+        //         factory,
+        //         keccak256(abi.encodePacked(token0, token1)),
+        //         hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
+        //     ))));
+                pair = address(uint(keccak256(abi.encodePacked(
                 hex'ff',
                 factory,
                 keccak256(abi.encodePacked(token0, token1)),
-                hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
+                hex'7ac133e28fc374574416298997684759cf03e3c03c0a3339ec4bb4ace508a7af' // init code hash
             ))));
     }
 
@@ -33,6 +50,7 @@ library UniswapV2Library {
     }
 
     // given some amount of an asset and pair reserves, returns an equivalent amount of the other asset
+    //通过A
     function quote(uint amountA, uint reserveA, uint reserveB) internal pure returns (uint amountB) {
         require(amountA > 0, 'UniswapV2Library: INSUFFICIENT_AMOUNT');
         require(reserveA > 0 && reserveB > 0, 'UniswapV2Library: INSUFFICIENT_LIQUIDITY');

@@ -31,12 +31,12 @@ contract UniswapV2Factory is IUniswapV2Factory {
         //判断交易对是否存在
         require(getPair[token0][token1] == address(0), 'UniswapV2: PAIR_EXISTS'); // single check is sufficient
 
-        // 获取 UniswapV2Pair 合约的字节码
-        bytes memory bytecode = type(UniswapV2Pair).creationCode;
+        // type(c).creationCode 获取 创建 UniswapV2Pair 合约的字节码
+        bytes memory bytecode = type(UniswapV2Pair).creationCode; 
         // 使用参数 token0, token1 计算 salt
         bytes32 salt = keccak256(abi.encodePacked(token0, token1));
 
-        // 使用 create2 部署 Pair 合约
+        // 使用 create2 部署 Pair 合约, 可提前知道pair的地址
         assembly {
             pair := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }

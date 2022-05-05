@@ -30,15 +30,6 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.4",
-        settings: {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          }
-        }
-      },
-      {
         version: "0.4.18",
         settings: {
           optimizer: {
@@ -76,7 +67,7 @@ const config: HardhatUserConfig = {
       }
     ]
   },
-  defaultNetwork: "rinkeby",
+  defaultNetwork: "localhost",
   networks: {
     hardhat: {//启动hardhat节点默认生成20个账户
       allowUnlimitedContractSize: true,
