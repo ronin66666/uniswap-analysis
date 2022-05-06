@@ -35,19 +35,6 @@ https://monokh.com/posts/uniswap-from-scratch
 
 https://zhuanlan.zhihu.com/p/268435169
 
-
-
-## 知识点：
-// 获取 UniswapV2Pair 合约的字节码
-```bash
-bytes memory bytecode = type(UniswapV2Pair).creationCode;
-```
-
-// 使用参数 token0, token1 计算 salt (abi编码)
-```bash
-bytes32 salt = keccak256(abi.encodePacked(token0, token1));
-```
-
 ## 创建api key
 
 infura的使用
@@ -291,21 +278,167 @@ Uniswap相关公式和手续费计算可参考：https://blog.csdn.net/sanqima/a
 
 [Uniswap白皮书](https://uniswap.org/whitepaper.pdf)手续费是从0.3%之中，抽取1/6给开发团队作为协议费，剩下的按比例返还给LP。注意，返还的不是实际参与交易的Token X和Token Y，而是LP Token(即Uniswap的平台币UNI)，而且Uniswap不是将UNI马上返还，而是当LP用户自己移除流动性或者直接提现UNI时，才返还UNI给LP用户
 
-## 
+## 兑换
+
+使用确定数量A兑换不确定数量B
+
+```solidity
+     //使用确定数量的A兑换不确定数量的B
+    // 交易获得 tokenB 的数量不会小于 amountOutMin
+    function swapExactTokensForTokens(
+        uint amountIn,      //兑换支付的tokenA
+        uint amountOutMin,  //获得tokenB的最小数量
+        address[] calldata path,    //交易路径列表
+        address to,     //接收地址
+        uint deadline   //过期时间
+    ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
+        //计算能兑换tokenB的数量(并不是实际能到手的金额)
+        //amounts[1]: 为换出的token
+        amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path);
+
+        require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        // 用户转token为: path[0] 金额为amounts[0] 到池子中
+        TransferHelper.safeTransferFrom(
+            path[0], msg.sender, UniswapV2Library.pairFor(factory, path[0], path[1]), amounts[0]
+        );
+			//兑换
+        _swap(amounts, path, to);
+    }
+```
+
+计算可退换出的B数量`amounts[i + 1] = getAmountOut(amounts[i], reserveIn, reserveOut);`
+
+```solidity
+function getAmountOut(
+        uint256 amountIn,  //换入token数量
+        uint256 reserveIn, //换入token库存
+        uint256 reserveOut //换出token库存
+    ) internal pure returns (uint256 amountOut) {
+        require(amountIn > 0, "UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT");
+        require(
+            reserveIn > 0 && reserveOut > 0,
+            "UniswapV2Library: INSUFFICIENT_LIQUIDITY"
+        );
+        //计算出可兑换出的token数量
+        //amountOut = ((amountIn * 997) * reserveOut) / ((reserveIn * 1000) + (amountIn * 997))
+        uint256 amountInWithFee = amountIn.mul(997); 
+        uint256 numerator = amountInWithFee.mul(reserveOut);
+        uint256 denominator = reserveIn.mul(1000).add(amountInWithFee);
+        amountOut = numerator / denominator;
+    }
+```
 
 可用于兑换数量 `amountA = amountAIn * (1 - 0.3%)` 0.3%为扣除的手续费
 
-可换出数量B：`(amountA * reserveB ) / (reserveA + amountA)`
+可换出数量`amountOut = (amountA * reserveB ) / (reserveA + amountA)`
 
+兑换
 
+```solidity
+function _swap(uint[] memory amounts, address[] memory path, address _to) internal virtual {
+        for (uint i; i < path.length - 1; i++) {
+            (address input, address output) = (path[i], path[i + 1]);
+            //小地址token0
+            (address token0,) = UniswapV2Library.sortTokens(input, output);
+            uint amountOut = amounts[i + 1];
+            //兑出赋值
+            (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
+            //比如A换C,但是没有A换C的交易对，如果有A->B, B->C 的交易对，则根据路径 A -> B -> C, 会先将A换成B再换成C
+            address to = i < path.length - 2 ? UniswapV2Library.pairFor(factory, output, path[i + 2]) : _to;
+            //调用交易对swap方法
+            IUniswapV2Pair(UniswapV2Library.pairFor(factory, input, output)).swap(
+                amount0Out, amount1Out, to, new bytes(0)
+            );
+        }
+    }
+```
 
+调用交易对的兑换方法
 
+```solidity
+//兑换
+    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
+        require(amount0Out > 0 || amount1Out > 0, 'UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
+        //获取库存
+        (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
+        require(amount0Out < _reserve0 && amount1Out < _reserve1, 'UniswapV2: INSUFFICIENT_LIQUIDITY');
 
+        uint balance0;
+        uint balance1;
+        { // scope for _token{0,1}, avoids stack too deep errors 使用代码块来避免堆栈太深（变量过多）的错误
+        address _token0 = token0;
+        address _token1 = token1;
+        require(to != _token0 && to != _token1, 'UniswapV2: INVALID_TO');
 
+        //转出兑换的token到to接收地址
+        if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
+        if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
 
+        if (data.length > 0) IUniswapV2Callee(to).uniswapV2Call(msg.sender, amount0Out, amount1Out, data);
+        //从新获取余额
+        balance0 = IERC20(_token0).balanceOf(address(this));
+        balance1 = IERC20(_token1).balanceOf(address(this));
+        }
 
+        //计算换进的token数量
+        uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
+        uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
+        require(amount0In > 0 || amount1In > 0, 'UniswapV2: INSUFFICIENT_INPUT_AMOUNT');
+        { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
 
+        //扣除换进手续费后池子剩余的余额
+        uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
+        //如果是token0换token1,则amount1In为0，balance1Adjusted = balance1 * 1000
+        uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
+        //保证兑换后的乘积K1 >= 兑换前的K，因为有手续费的存在，k值会越来越大
+        require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 'UniswapV2: K');
+        }
+        //更新余额，从新计算价格
+        _update(balance0, balance1, _reserve0, _reserve1);
+        emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
+    }
+```
 
+更新余额和计算价格
+
+更新资金池: 主要作用是对资金池的记录库存和实际余额进行匹配，保证库存和余额统一。
+ 函数 `_update `中对 `price0CumulativeLast 和 price1CumulativeLast `进行了与时间成反比的数值累加，可以通过这两个变量计算出相对平衡的市场价格。
+     
+
+```solidity
+		/**
+				uint balance0, // token0 的余额
+        uint balance1, // token1 的余额
+        uint112 _reserve0, // token0 的资金池库存数量
+        uint112 _reserve1 // token1 的资金池库存数量
+		*/
+    function _update(uint balance0, uint balance1, uint112 _reserve0, uint112 _reserve1) private {
+        // uint112(-1) = type(uint112).max
+        // balance0 和 blanace1 不超过 uint112 的上限
+        require(balance0 <= uint112(-1) && balance1 <= uint112(-1), 'UniswapV2: OVERFLOW');
+
+        //uint32(block.timestamp % 2**32) 保证时间不超过uint32的最大值
+        uint32 blockTimestamp = uint32(block.timestamp % 2**32);
+
+        //计算时间差：当前时间 - 上次更新时间
+        uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
+        if (timeElapsed > 0 && _reserve0 != 0 && _reserve1 != 0) {
+            // * never overflows, and + overflow is desired
+
+            //由于solidity没有浮点数所以 这里使用UQ112x112库来计算，防止当被除数小于除数时结果为0的情况
+            //token1相对于token0 的timeElapsed累计价格计算：(_reserve1 / __reserve0) * 时间差， 
+            price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
+            
+            //token0相对于token1 的timeElapsed累计价格计算：(_reserve1 / __reserve0) * 时间差， 
+            price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
+        }
+
+        reserve0 = uint112(balance0); //保证库存和balance相等
+        reserve1 = uint112(balance1);
+        blockTimestampLast = blockTimestamp;
+        emit Sync(reserve0, reserve1); //提交同步数据
+    }
+```
 
 
 
