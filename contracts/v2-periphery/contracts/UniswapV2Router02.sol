@@ -270,12 +270,16 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         address to,     //接收地址
         uint deadline   //过期时间
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
-        //计算能兑换tokenB的数量
+        //计算能兑换tokenB的数量(并不是实际能到手的金额)
+        //amounts[1]: 为换出的token
         amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path);
+
         require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        // 用户转token为: path[0] 金额为amounts[0] 到池子中
         TransferHelper.safeTransferFrom(
             path[0], msg.sender, UniswapV2Library.pairFor(factory, path[0], path[1]), amounts[0]
         );
+
         _swap(amounts, path, to);
     }
 

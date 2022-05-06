@@ -20,7 +20,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     address public token1; //一个交易对中的token0
 
     //token的储备数量    
-    uint112 private reserve0        // uses single storage slot, accessible via getReserves
+    uint112 private reserve0;        // uses single storage slot, accessible via getReserves
     uint112 private reserve1;           // uses single storage slot, accessible via getReserves
 
     uint32  private blockTimestampLast; // uses single storage slot, accessible via getReserves
@@ -113,24 +113,23 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
             price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
         }
 
-        reserve0 = uint112(balance0);
+        reserve0 = uint112(balance0); //保证库存和balance相等
         reserve1 = uint112(balance1);
         blockTimestampLast = blockTimestamp;
         emit Sync(reserve0, reserve1); //提交同步数据
     }
 
     // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
-    //mint 流动性相当于 sqrt(k) 增长的 1/6
-    // 实现添加和移除流动性时，向 feeTo 地址发送手续费。
+    //判断团队开发协议费用是否开启 ，交易手续费（%0.3）1/6作为团队开发费用
     function _mintFee(uint112 _reserve0, uint112 _reserve1) private returns (bool feeOn) {
-        address feeTo = IUniswapV2Factory(factory).feeTo();
-        feeOn = feeTo != address(0);
-        uint _kLast = kLast; // gas savings
+        address feeTo = IUniswapV2Factory(factory).feeTo(); 
+        feeOn = feeTo != address(0); //如果设置了feeTo地址，则开启
+        uint _kLast = kLast; //上次K值（reserve0).mul(reserve1)
         if (feeOn) {
-            if (_kLast != 0) {
+            if (_kLast != 0) {//上次库存为0时KLast为0
                 uint rootK = Math.sqrt(uint(_reserve0).mul(_reserve1));
                 uint rootKLast = Math.sqrt(_kLast);
-                if (rootK > rootKLast) {
+                if (rootK > rootKLast) {//如果只是添加流动性root = rootKLast不会收取手续费
                     uint numerator = totalSupply.mul(rootK.sub(rootKLast));
                     uint denominator = rootK.mul(5).add(rootKLast);
                     uint liquidity = numerator / denominator;
@@ -144,12 +143,14 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
 
     // this low-level function should be called from a contract which performs important safety checks
     function mint(address to) external lock returns (uint liquidity) {
+        //获取上次库存
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
+        //计算用户这次添加的流动性
         uint balance0 = IERC20(token0).balanceOf(address(this));
         uint balance1 = IERC20(token1).balanceOf(address(this));
         uint amount0 = balance0.sub(_reserve0);
         uint amount1 = balance1.sub(_reserve1);
-
+        //计算团队开发协议费
         bool feeOn = _mintFee(_reserve0, _reserve1);
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         if (_totalSupply == 0) {

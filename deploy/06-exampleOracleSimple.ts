@@ -1,6 +1,7 @@
 import { deployments, getNamedAccounts } from "hardhat";
 
-export default async function exampleOracleSimple() {
+// export default async function exampleOracleSimple() {
+ async function exampleOracleSimple() {
 
     const { deployer } = await getNamedAccounts();
 
@@ -15,7 +16,6 @@ export default async function exampleOracleSimple() {
     });
 
     console.log("exampleOracleSimple address = ", result.address);
-    
 }
 
-exampleOracleSimple.tags = ["exampleOracleSimple"];
+// exampleOracleSimple.tags = ["exampleOracleSimple"];

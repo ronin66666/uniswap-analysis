@@ -1,3 +1,4 @@
+import { ethers } from "hardhat";
 
 
 //返回秒数
@@ -8,6 +9,10 @@ export  function getAfterTime(timeStamp: number): number {
     const afterTime = curretTime + timeStamp;
     return afterTime;
 }
+
+
+
+
 
 // async function main() {
 
