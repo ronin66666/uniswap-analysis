@@ -174,7 +174,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         TransferHelper.safeTransferETH(to, amountETH);
     }
 
-
+    //使用签名移除流动性，可免除移除流动性者一笔gas费，由真正发起交易者付gas费
     function removeLiquidityWithPermit(
         address tokenA,
         address tokenB,

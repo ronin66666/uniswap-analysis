@@ -12,7 +12,7 @@ export async function getInitCode() {
 
 async function test() {
  
-    
+    await getInitCode();
 }
 
 

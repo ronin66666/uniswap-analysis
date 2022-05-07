@@ -9,6 +9,12 @@ export async function getPair(tokenA: string, tokenB: string) {
     return pair;
 }   
 
+export async function pairApprove(who:string, spender: string, pair: string) {
+    const pairContract = await ethers.getContractAt<UniswapV2Pair>("UniswapV2Pair", pair, who);
+    const result = await pairContract.approve(spender, ethers.constants.MaxUint256).then(tx => tx.wait());
+    console.log("approve success");
+
+}
 //获取库存量
 export async function getReserves(pair: string) {
     const pairContract = await ethers.getContractAt<UniswapV2Pair>("UniswapV2Pair", pair);
@@ -27,11 +33,13 @@ export async function totalSupply(pair: string) {
     console.log(`totalSupply = ${totalSupply}`);
 }
 
+//获取流动令牌数量
 export async function getLiquidity(who: string, pair: string) {
     const pairContract = await ethers.getContractAt<UniswapV2Pair>("UniswapV2Pair", pair);
     const result = await pairContract.balanceOf(who);
     const myLiquidity = ethers.utils.formatEther(result);
     console.log(`myLiquidity = ${myLiquidity}`);
+    return result;
 }
 
 // async function test() {
